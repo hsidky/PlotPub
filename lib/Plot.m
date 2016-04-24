@@ -127,7 +127,8 @@ classdef Plot < handle
             plot.LegendBoxColor  = [1,1,1];
             plot.LegendTextColor = [0,0,0];
             plot.MarkerSpacing   = 5;
-            plot.Markers         = '';            
+            plot.Markers         = '';
+            plot.MarkerFill      = 'none';
 
             plot.Resolution      = 600;
         end
@@ -144,6 +145,7 @@ classdef Plot < handle
         LineCount
         Markers
         MarkerSpacing
+        MarkerFill
         Colors
         AxisColor
         AxisLineWidth
@@ -220,6 +222,7 @@ classdef Plot < handle
         lineStyle   % line style
         markers     % markers
         markerSpacing % marker spacing
+        markerfill
         colors      % line colors
         legendBox          % legend box, on/off
         legendBoxColor     % legend box color
@@ -290,7 +293,11 @@ classdef Plot < handle
             end
             
             % get figure handles
-            self.haxes = get(self.hfig, 'CurrentAxes');
+            if nargin == 2 && isa(varargin{2},'matlab.graphics.axis.Axes')
+                self.haxes = varargin{2};
+            else
+                self.haxes = get(self.hfig, 'CurrentAxes');
+            end
             self.htitle = get(self.haxes, 'Title');
             
             self.hxlabel = get(self.haxes, 'XLabel');
@@ -447,46 +454,52 @@ classdef Plot < handle
                     if strcmp(self.markers{ii}, '')
                         self.markers{ii} = 'None';
                     end
-                    
-                    if ~strcmp(self.markers{ii}, 'None')
-                        if isempty(self.hm{ii}) && ~strcmp(self.markers{ii}, 'None')
-                            X = self.xdata{ii};
-                            Y = self.ydata{ii};
-
-                            hold(self.haxes, 'on')
-                            self.hm{ii} = plot (X(1:self.markerSpacing(ii):end), Y(1:self.markerSpacing(ii):end));
-                        end
-                        set(self.hm{ii}, ...
-                          'LineStyle'       , 'None', ...
+                    set(self.hp{ii}, ...
                           'Marker'          , self.markers{ii},...
                           'Color'           , self.colors{ii}, ...
                           'MarkerEdgeColor' , 'none',...
                           'MarkerFaceColor' , self.colors{ii}, ...
                           'MarkerSize'      , 3*self.lineWidth(ii)); 
-                    
-                        if isempty(self.hfm{ii})
-                            X = self.xdata{ii};
-                            Y = self.ydata{ii};
-                        
-                            hold(self.haxes, 'on')
-                            self.hfm{ii} = plot(X, Y);
-                        end
-                        set(self.hfm{ii}, ...
-                          'LineStyle'       , self.lineStyle{ii}, ...
-                          'Marker'          , self.markers{ii},...
-                          'Color'           , self.colors{ii}, ...
-                          'MarkerEdgeColor' , 'none',...
-                          'MarkerFaceColor' , self.colors{ii}, ...
-                          'MarkerSize'      , 3*self.lineWidth(ii), ...
-                          'LineWidth'       , self.lineWidth(ii),...
-                          'Visible'         , 'off');
-                    end                       
                 end
             end 
         end
         function Markers = get.Markers(self)
             Markers = self.markers;
         end
+        
+        function set.MarkerFill(self, MarkerFill)
+            if ~iscell(MarkerFill)
+                tmp = MarkerFill;
+                MarkerFill = [];
+                MarkerFill{1} = tmp;
+            end
+            if self.holdLines == false
+                for ii=1:self.N
+                    if ii > length(MarkerFill)
+                        self.markerfill{ii} = MarkerFill{end};
+                    else
+                        self.markerfill{ii} = MarkerFill{ii};
+                    end
+                    
+                    if strcmp(self.markerfill{ii}, '')
+                        self.markerfill{ii} = self.colors{ii};
+                    end
+                    if strcmp(self.markerfill{ii},'none')
+                        set(self.hp{ii}, ...
+                            'MarkerFaceColor', self.markerfill{ii}, ...
+                            'MarkerEdgeColor', self.colors{ii});
+                    else
+                        set(self.hp{ii}, ...
+                            'MarkerFaceColor', self.markerfill{ii});
+                    end
+                end
+            end
+        end
+        
+        function MarkerFill = get.MarkerFill(self)
+            MarkerFill = self.markerfill;
+        end
+        
         function set.MarkerSpacing(self, MarkerSpacing)
             if self.holdLines == false
                 for ii=1:self.N   
@@ -889,15 +902,15 @@ classdef Plot < handle
             if strcmpi(fileType, 'eps')
                 print(self.hfig, '-depsc2', FileName);
                 vers = version();
-                if ~strcmp(vers(1:3), '8.4')
-                    fixPSlinestyle(FileName);
-                end
+                %if ~strcmp(vers(1:3), '8.4')
+                %    fixPSlinestyle(FileName);
+                %end
             elseif strcmpi(fileType, 'pdf')
                 print(self.hfig, '-dpdf', FileName);
             elseif strcmpi(fileType, 'jpg') || strcmpi(fileType, 'jpeg')
                 print(self.hfig, '-djpeg', '-opengl', sprintf('-r%d', self.Resolution), FileName);
             elseif strcmpi(fileType, 'png') 
-                print(self.hfig, '-dpng', '-opengl', sprintf('-r%d', self.Resolution), FileName);
+                print(self.hfig, '-dpng', '-painters', sprintf('-r%d', self.Resolution), FileName);
             elseif strcmpi(fileType, 'tiff') 
                 print(self.hfig, '-dtiff', '-opengl', sprintf('-r%d', self.Resolution), FileName);
             elseif strcmpi(fileType, 'svg')
